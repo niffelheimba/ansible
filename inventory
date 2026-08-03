@@ -1,0 +1,73 @@
+all:
+  vars:
+    ansible_user: ansible-service
+    ansible_become: true
+    ansible_become_method: sudo
+    ansible_python_interpreter: /usr/bin/python3
+
+  children:
+
+    physical_hosts:
+      hosts:
+        home-pve-hypervisor-01:
+          ansible_host: 10.10.70.100
+
+        home-pve-hypervisor-02:
+          ansible_host: 10.10.70.200
+
+    virtual_machines:
+      children:
+
+        home:
+          hosts:
+            home-vm-truenas-01:
+              ansible_host: 10.10.60.250
+              hypervisor: home-pve-hypervisor-02
+
+            home-vm-multi-01:
+              ansible_host: 10.10.60.200
+              hypervisor: home-pve-hypervisor-02
+
+            home-vm-proxyauth-01:
+              ansible_host: 10.10.50.100
+              hypervisor: home-pve-hypervisor-02
+
+            home-vm-jellyfin-01:
+              ansible_host: 10.10.60.6
+              hypervisor: home-pve-hypervisor-02
+            
+            home-vm-amp-01:
+              ansible_host: 10.10.50.50
+              hypervisor: home-pve-hypervisor-01
+
+        cloud:
+          hosts:
+            cloud-vm-multi-01:
+              ansible_host: 10.0.0.154
+            cloud-vm-multi-02:
+              ansible_host: 10.0.0.92
+
+    linux_containers:
+      children:
+
+        home:
+          hosts:
+            home-lxc-tailscale-01:
+              ansible_host: 10.10.60.241
+              hypervisor: home-pve-hypervisor-01
+
+            home-lxc-tailscale-02:
+              ansible_host: 10.10.60.243
+              hypervisor: home-pve-hypervisor-02
+
+            home-lxc-netbird-01:
+              ansible_host: 10.10.60.242
+              hypervisor: home-pve-hypervisor-01
+              
+            home-lxc-netbird-02:
+              ansible_host: 10.10.60.244
+              hypervisor: home-pve-hypervisor-02
+
+            home-lxc-picpeak-01:
+              ansible_host: 10.10.50.253
+              hypervisor: home-pve-hypervisor-02
