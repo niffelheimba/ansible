@@ -1,0 +1,73 @@
+---
+- name: Safely reboot Proxmox VE hosts when required
+  hosts: proxmox_nodes
+  become: true
+  gather_facts: false
+  serial: 1
+  any_errors_fatal: true
+
+  tasks:
+    - name: Check whether a reboot is required
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+      register: reboot_required_file
+
+    - name: Reboot a PVE node only after safety checks
+      when: reboot_required_file.stat.exists
+      block:
+        - name: Verify cluster status and quorum before rebooting
+          ansible.builtin.command: pvecm status
+          changed_when: false
+
+        - name: Query QEMU guests on this node
+          ansible.builtin.command:
+            argv:
+              - pvesh
+              - get
+              - "/nodes/{{ inventory_hostname }}/qemu"
+              - --output-format
+              - json
+          register: pve_qemu_guests
+          changed_when: false
+
+        - name: Query LXC containers on this node
+          ansible.builtin.command:
+            argv:
+              - pvesh
+              - get
+              - "/nodes/{{ inventory_hostname }}/lxc"
+              - --output-format
+              - json
+          register: pve_lxc_guests
+          changed_when: false
+
+        - name: Verify that no guests are running on this node
+          ansible.builtin.assert:
+            that:
+              - >-
+                (pve_qemu_guests.stdout | from_json |
+                selectattr('status', 'equalto', 'running') | list | length) == 0
+              - >-
+                (pve_lxc_guests.stdout | from_json |
+                selectattr('status', 'equalto', 'running') | list | length) == 0
+            fail_msg: >-
+              {{ inventory_hostname }} still has running guests. Migrate or
+              shut them down before allowing this automated PVE reboot.
+
+        - name: Reboot and wait for the PVE node to return
+          ansible.builtin.reboot:
+            msg: Reboot initiated by Ansible after Proxmox VE package updates
+            connect_timeout: 10
+            reboot_timeout: 1200
+            pre_reboot_delay: 10
+            post_reboot_delay: 30
+            test_command: pveversion
+
+        - name: Verify cluster status and quorum after rebooting
+          ansible.builtin.command: pvecm status
+          changed_when: false
+
+    - name: Report PVE nodes that did not require a reboot
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }} does not require a reboot."
+      when: not reboot_required_file.stat.exists
