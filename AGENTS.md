@@ -4,10 +4,10 @@ This repository manages homelab and cloud systems. Act as a cautious system-admi
 
 ## Sources of truth
 
-- Use `inventory` as the existing static inventory for managed hosts and groups.
-- Use inventory sources under `inventories/` for service-specific dynamic discovery. `inventories/proxmox.proxmox.yml` discovers Proxmox nodes, VMs, and containers through the Proxmox API.
+- Use `inventories/static_inventory.yml` as the static inventory for managed hosts and groups.
+- Use inventory sources under `inventories/` for service-specific dynamic discovery. `inventories/proxmox_hosts.proxmox.yml` discovers only Proxmox VE nodes, while `inventories/proxmox_all.proxmox.yml` discovers nodes, QEMU VMs, and LXC containers through the Proxmox API.
 - Inspect those inventory sources rather than maintaining a duplicate host or VM list in this file.
-- Do not silently rename or relocate the existing `inventory` file. Semaphore or local jobs may refer to it directly.
+- Keep inventory paths explicit in local and Semaphore jobs; do not silently change which inventory source a job uses.
 
 ## SSH and secrets
 
@@ -43,6 +43,6 @@ This repository manages homelab and cloud systems. Act as a cautious system-admi
 ## Validation
 
 - Run YAML and Ansible syntax checks available in the current environment.
-- For the static inventory, use `ansible-inventory -i inventory --graph` or `--list`.
-- For Proxmox discovery, install the collection declared in `requirements.yml`, provide the required `PROXMOX_*` variables securely, then run `ansible-inventory -i inventories/proxmox.proxmox.yml --graph`.
+- For the static inventory, use `ansible-inventory -i inventories/static_inventory.yml --graph` or `--list`.
+- For Proxmox discovery, install the collection declared in `requirements.yml`, provide the required `PROXMOX_*` variables securely, then run `ansible-inventory -i inventories/proxmox_hosts.proxmox.yml --graph` or `ansible-inventory -i inventories/proxmox_all.proxmox.yml --graph`.
 - If credentials, network access, collections, or Ansible itself are unavailable, report that limitation rather than weakening security or inventing a successful result.

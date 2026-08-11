@@ -1,6 +1,8 @@
 ---
-# Proxmox API connection and token values are supplied by the runtime
-# environment (locally or through Semaphore). Do not commit them here.
+# Discovers Proxmox VE cluster nodes only. In the current stable plugin,
+# filters apply to guests while nodes remain included unless exclude_nodes is
+# enabled, so rejecting every guest produces a node-only inventory.
+# API connection and token values are supplied by the runtime environment.
 plugin: community.proxmox.proxmox
 url: "{{ lookup('ansible.builtin.env', 'PROXMOX_URL') }}"
 user: "{{ lookup('ansible.builtin.env', 'PROXMOX_USER') }}"
@@ -8,14 +10,9 @@ token_id: "{{ lookup('ansible.builtin.env', 'PROXMOX_TOKEN_ID') }}"
 token_secret: "{{ lookup('ansible.builtin.env', 'PROXMOX_TOKEN_SECRET') }}"
 
 validate_certs: true
-want_facts: true
+want_facts: false
 want_proxmox_nodes_ansible_host: false
+exclude_nodes: false
 
-keyed_groups:
-  - key: proxmox_node
-    prefix: proxmox_node
-  - key: proxmox_vmtype
-    prefix: proxmox_type
-  - key: proxmox_tags_parsed
-    prefix: proxmox_tag
-    separator: "_"
+filters:
+  - "false"
