@@ -12,6 +12,13 @@ validate_certs: true
 want_facts: true
 want_proxmox_nodes_ansible_host: false
 
+# QEMU guests are excluded from the guest update playbook unless listed here.
+# LXC containers are updated through the plugin's proxmox_all_lxc group.
+groups:
+  essential_vms: >-
+    proxmox_vmtype == 'qemu' and
+    proxmox_name == 'home-vm-proxyauth-01'
+
 keyed_groups:
   - key: proxmox_node
     prefix: proxmox_node

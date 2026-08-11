@@ -1,14 +1,21 @@
 ---
-- name: Update Ubuntu and Debian virtual machines and containers
-  hosts: "virtual_machines:linux_containers"
+- name: Update discovered LXC containers and essential QEMU VMs
+  hosts: "proxmox_all_lxc:essential_vms"
   become: true
-  gather_facts: true
+  gather_facts: false
   serial: "25%"
 
   vars:
     apt_cache_valid_time: 3600
 
   pre_tasks:
+    - name: Skip guests that are not running
+      ansible.builtin.meta: end_host
+      when: proxmox_status != "running"
+
+    - name: Gather operating system facts
+      ansible.builtin.setup:
+
     - name: Verify that the target uses the Debian package family
       ansible.builtin.assert:
         that:

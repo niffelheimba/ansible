@@ -6,6 +6,7 @@ This repository manages homelab and cloud systems. Act as a cautious system-admi
 
 - Use `inventories/static_inventory.yml` as the static inventory for managed hosts and groups.
 - Use inventory sources under `inventories/` for service-specific dynamic discovery. `inventories/proxmox_hosts.proxmox.yml` discovers only Proxmox VE nodes, while `inventories/proxmox_all.proxmox.yml` discovers nodes, QEMU VMs, and LXC containers through the Proxmox API.
+- `inventories/proxmox_all.proxmox.yml` defines the explicit `essential_vms` group used by `update-proxmox-guests.yml`. Keep non-essential QEMU guests out of that group; currently only `home-vm-proxyauth-01` is essential. LXC containers are targeted separately through `proxmox_all_lxc`.
 - Inspect those inventory sources rather than maintaining a duplicate host or VM list in this file.
 - Keep inventory paths explicit in local and Semaphore jobs; do not silently change which inventory source a job uses.
 
@@ -35,6 +36,7 @@ This repository manages homelab and cloud systems. Act as a cautious system-admi
 
 - Manage Proxmox VE hosts through a dedicated play or an explicit `physical_hosts`/Proxmox node group; never include them accidentally in a generic VM/container update.
 - Update or reboot at most one Proxmox node at a time (`serial: 1`). Confirm cluster quorum/health, guest placement, active tasks, storage health, and migration or shutdown requirements before proceeding to the next node.
+- Use `update-pve-hosts.yml` only with `inventories/proxmox_hosts.proxmox.yml`. Use `update-proxmox-guests.yml` with `inventories/proxmox_all.proxmox.yml`; it intentionally targets all discovered LXC containers and only QEMU guests in `essential_vms`.
 - Use the Proxmox-supported dependency-aware APT upgrade workflow for PVE hosts. Never run blind `apt autoremove`, remove `proxmox-ve`, or accept removal of critical PVE, kernel, storage, networking, or clustering packages without explicit review and approval.
 - Do not reboot a PVE node merely because updates are available. Determine whether a reboot is required, account for its guests, and verify the node and cluster after it returns.
 - Do not change corosync/quorum settings, cluster membership, shared storage, bridges/bonds/VLANs, replication, backup retention, HA, or firewall configuration without first inspecting the complete current configuration and stating a recovery plan.

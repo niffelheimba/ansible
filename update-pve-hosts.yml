@@ -1,0 +1,61 @@
+---
+- name: Update Proxmox VE hosts one node at a time
+  hosts: proxmox_nodes
+  become: true
+  gather_facts: true
+  serial: 1
+
+  vars:
+    apt_cache_valid_time: 3600
+
+  pre_tasks:
+    - name: Verify that the target uses the Debian package family
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.os_family == "Debian"
+        fail_msg: >-
+          {{ inventory_hostname }} is not in the Debian package family and
+          will not be updated as a Proxmox VE host.
+
+    - name: Verify that Proxmox VE is installed
+      ansible.builtin.command: pveversion
+      changed_when: false
+
+    - name: Verify cluster status and quorum before updating
+      ansible.builtin.command: pvecm status
+      changed_when: false
+
+  tasks:
+    - name: Update the APT package cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: "{{ apt_cache_valid_time }}"
+        update_cache_retries: 5
+
+    - name: Install all available dependency-aware package upgrades
+      ansible.builtin.apt:
+        upgrade: full
+        dpkg_options: force-confdef,force-confold
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+
+    - name: Check whether a reboot is required
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+      register: reboot_required_file
+
+    - name: Report that a reviewed reboot is required
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }} requires a reboot. This playbook does not
+          reboot PVE nodes automatically; review guests and cluster health first.
+      when: reboot_required_file.stat.exists
+
+  post_tasks:
+    - name: Verify Proxmox VE after the update
+      ansible.builtin.command: pveversion
+      changed_when: false
+
+    - name: Verify cluster status and quorum after the update
+      ansible.builtin.command: pvecm status
+      changed_when: false
