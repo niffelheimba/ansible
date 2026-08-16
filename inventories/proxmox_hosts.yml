@@ -1,0 +1,17 @@
+---
+# Static inventory for Proxmox VE nodes. Use only with the dedicated PVE
+# update and reboot playbooks.
+all:
+  vars:
+    ansible_user: ansible-service
+    ansible_become: true
+    ansible_become_method: sudo
+    ansible_python_interpreter: /usr/bin/python3
+
+  children:
+    proxmox_nodes:
+      hosts:
+        home-pve-hypervisor-01:
+          ansible_host: 10.10.70.100
+        home-pve-hypervisor-02:
+          ansible_host: 10.10.70.200

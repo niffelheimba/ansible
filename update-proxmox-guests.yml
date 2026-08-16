@@ -1,9 +1,10 @@
 ---
-- name: Update discovered LXC containers and essential QEMU VMs
-  hosts: "proxmox_all_lxc:essential_vms"
+- name: Update ordinary Linux VMs and LXC containers
+  hosts: proxmox_guests
   become: true
   gather_facts: false
   serial: "25%"
+  max_fail_percentage: 100
 
   vars:
     apt_cache_valid_time: 3600

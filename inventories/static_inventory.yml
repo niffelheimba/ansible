@@ -71,18 +71,3 @@ all:
             home-lxc-picpeak-01:
               ansible_host: 10.10.50.253
               hypervisor: home-pve-hypervisor-02
-
-    # Compatibility groups for playbooks that normally use Proxmox dynamic
-    # inventory. Keep these lists explicit so QEMU guests are not accidentally
-    # included in the LXC update target.
-    proxmox_all_lxc:
-      hosts:
-        home-lxc-tailscale-01:
-        home-lxc-tailscale-02:
-        home-lxc-netbird-01:
-        home-lxc-netbird-02:
-        home-lxc-picpeak-01:
-
-    essential_vms:
-      hosts:
-        home-vm-proxyauth-01:

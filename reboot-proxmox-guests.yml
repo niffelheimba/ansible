@@ -1,14 +1,15 @@
 ---
 - name: Reboot updated Proxmox guests when required
-  hosts: "proxmox_all_lxc:essential_vms"
+  hosts: proxmox_guests
   become: true
   gather_facts: false
   serial: "25%"
+  max_fail_percentage: 100
 
   pre_tasks:
     - name: Skip guests that are not running
       ansible.builtin.meta: end_host
-      when: proxmox_status != "running"
+      when: (proxmox_status | default("running")) != "running"
 
   tasks:
     - name: Check whether a reboot is required
