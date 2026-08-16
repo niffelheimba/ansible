@@ -11,7 +11,7 @@
   pre_tasks:
     - name: Skip guests that are not running
       ansible.builtin.meta: end_host
-      when: proxmox_status != "running"
+      when: (proxmox_status | default("running")) != "running"
 
     - name: Gather operating system facts
       ansible.builtin.setup:
