@@ -32,6 +32,22 @@
         dpkg_options: force-confdef,force-confold
       environment:
         DEBIAN_FRONTEND: noninteractive
+      register: package_upgrade
+      ignore_unreachable: true
+
+    - name: Discard the previous SSH connection
+      ansible.builtin.meta: reset_connection
+
+    - name: Wait for SSH after package upgrades
+      ansible.builtin.wait_for_connection:
+        delay: 2
+        timeout: 180
+
+    - name: Verify package database consistency
+      ansible.builtin.command: dpkg --audit
+      changed_when: false
+      register: dpkg_audit
+      failed_when: (dpkg_audit.stdout | trim | length) > 0
 
     - name: Check whether a reboot is required
       ansible.builtin.stat:
