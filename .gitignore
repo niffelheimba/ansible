@@ -1,0 +1,4 @@
+# Audit results contain sensitive host details and must not enter Git.
+artifacts/
+__pycache__/
+*.pyc

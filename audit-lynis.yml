@@ -1,0 +1,154 @@
+---
+- name: Install Lynis and audit ordinary Linux guests
+  hosts: proxmox_guests
+  become: true
+  gather_facts: true
+  serial: 2
+
+  vars:
+    lynis_remote_root: /var/log/lynis-audits
+    lynis_collect_reports: true
+    lynis_controller_root: "{{ playbook_dir }}/artifacts/lynis"
+    lynis_audit_timeout: 1800
+
+  pre_tasks:
+    - name: Require Debian-family Linux guests
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.system == 'Linux'
+          - ansible_facts.os_family == 'Debian'
+          - inventory_hostname not in groups.get('physical_hosts', [])
+        fail_msg: This playbook supports ordinary Debian-family Linux guests only.
+
+  tasks:
+    - name: Install Lynis if absent without upgrading an existing installation
+      ansible.builtin.apt:
+        name: lynis
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Run audit and preserve its artifacts
+      when: not ansible_check_mode
+      block:
+        - name: Create private audit storage on the guest
+          ansible.builtin.file:
+            path: "{{ lynis_remote_root }}"
+            state: directory
+            owner: root
+            group: root
+            mode: '0700'
+
+        - name: Allocate a unique dated directory for this audit
+          ansible.builtin.tempfile:
+            state: directory
+            path: "{{ lynis_remote_root }}"
+            prefix: "{{ ansible_facts.date_time.iso8601_basic_short }}-"
+          register: lynis_run_directory
+
+        - name: Run an unattended audit without applying remediation
+          ansible.builtin.command:
+            argv:
+              - lynis
+              - audit
+              - system
+              - --cronjob
+              - --nocolors
+              - --log-file
+              - "{{ lynis_run_directory.path }}/lynis.log"
+              - --report-file
+              - "{{ lynis_run_directory.path }}/lynis-report.dat"
+          async: "{{ lynis_audit_timeout | int }}"
+          poll: 10
+          register: lynis_audit
+          changed_when: true
+          failed_when: false
+
+        - name: Save console output and exit status even on audit failure
+          ansible.builtin.copy:
+            dest: "{{ lynis_run_directory.path }}/console.txt"
+            owner: root
+            group: root
+            mode: '0600'
+            content: |
+              Host: {{ inventory_hostname }}
+              Exit status: {{ lynis_audit.rc | default('unavailable') }}
+              {{ lynis_audit.stdout | default('') }}
+              {{ lynis_audit.stderr | default('') }}
+              {{ lynis_audit.msg | default('') }}
+
+        - name: Convert the report into structured dashboard events
+          ansible.builtin.script:
+            cmd: >-
+              scripts/lynis-events.py
+              --report {{ (lynis_run_directory.path ~ '/lynis-report.dat') | quote }}
+              --host {{ inventory_hostname | quote }}
+              --scan-id {{ (lynis_run_directory.path | basename) | quote }}
+              --exit-code {{ lynis_audit.rc | default(-1) | int }}
+              --output {{ (lynis_run_directory.path ~ '/audit-events.jsonl') | quote }}
+            executable: /usr/bin/python3
+          register: lynis_events
+
+        - name: Publish structured events in the Semaphore job output for collection
+          ansible.builtin.debug:
+            msg: "LYNIS_EVENTS_B64={{ lynis_events.stdout | trim | b64encode }}"
+
+        - name: Locate audit artifacts, including partial results
+          ansible.builtin.stat:
+            path: "{{ lynis_run_directory.path }}/{{ item }}"
+          loop:
+            - lynis-report.dat
+            - lynis.log
+            - console.txt
+            - audit-events.jsonl
+          register: lynis_artifacts
+
+        - name: Restrict audit file permissions
+          ansible.builtin.file:
+            path: "{{ item.stat.path }}"
+            owner: root
+            group: root
+            mode: '0600'
+          loop: "{{ lynis_artifacts.results }}"
+          loop_control:
+            label: "{{ item.item }}"
+          when: item.stat.exists
+
+        - name: Create private collection directory on the Ansible runner
+          ansible.builtin.file:
+            path: >-
+              {{ lynis_controller_root }}/{{ inventory_hostname }}/{{ lynis_run_directory.path | basename }}
+            state: directory
+            mode: '0700'
+          delegate_to: localhost
+          become: false
+          when: lynis_collect_reports | bool
+
+        - name: Collect full and partial artifacts on the Ansible runner
+          ansible.builtin.fetch:
+            src: "{{ item.stat.path }}"
+            dest: >-
+              {{ lynis_controller_root }}/{{ inventory_hostname }}/{{ lynis_run_directory.path | basename }}/{{ item.item }}
+            flat: true
+          loop: "{{ lynis_artifacts.results }}"
+          loop_control:
+            label: "{{ item.item }}"
+          when:
+            - lynis_collect_reports | bool
+            - item.stat.exists
+
+        - name: Report artifact locations
+          ansible.builtin.debug:
+            msg:
+              - "Guest artifacts: {{ lynis_run_directory.path }}"
+              - >-
+                Runner artifacts: {{ lynis_controller_root }}/{{ inventory_hostname }}/{{ lynis_run_directory.path | basename }}
+                (collection enabled: {{ lynis_collect_reports | bool }})
+
+        - name: Fail unsuccessful scans after preserving available evidence
+          ansible.builtin.assert:
+            that:
+              - lynis_audit.rc | default(-1) | int == 0
+              - lynis_artifacts.results[0].stat.exists
+              - lynis_artifacts.results[0].stat.size | default(0) | int > 0
+            fail_msg: Lynis did not complete successfully. Review the saved console and log files.
