@@ -1,0 +1,64 @@
+---
+- name: Update Ubuntu ARM64 Oracle Cloud VMs one at a time
+  hosts: oracle_cloud
+  become: true
+  gather_facts: true
+  serial: 1
+  any_errors_fatal: true
+
+  vars:
+    oracle_apt_cache_valid_time: 3600
+    oracle_apt_lock_timeout: 300
+
+  pre_tasks:
+    - name: Check the platform and package database before updating
+      ansible.builtin.import_tasks: tasks/oracle-preflight.yml
+
+  tasks:
+    - name: Refresh distribution package metadata without disrupting other package jobs
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: "{{ oracle_apt_cache_valid_time }}"
+        lock_timeout: "{{ oracle_apt_lock_timeout }}"
+        update_cache_retries: 3
+
+    - name: Install available upgrades without package removals or a release upgrade
+      ansible.builtin.apt:
+        upgrade: safe
+        force_apt_get: true
+        fail_on_autoremove: true
+        lock_timeout: "{{ oracle_apt_lock_timeout }}"
+        dpkg_options: force-confdef,force-confold
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+
+    - name: Discard the previous SSH connection
+      ansible.builtin.meta: reset_connection
+
+    - name: Wait for SSH after package upgrades
+      ansible.builtin.wait_for_connection:
+        delay: 2
+        timeout: 180
+      when: not ansible_check_mode
+
+    - name: Verify package database consistency after upgrades
+      ansible.builtin.command: dpkg --audit
+      register: oracle_dpkg_after
+      changed_when: false
+      when: not ansible_check_mode
+      failed_when: >-
+        oracle_dpkg_after.rc != 0 or
+        (oracle_dpkg_after.stdout | trim | length) > 0
+
+    - name: Check whether the VM requires a reboot
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+      register: oracle_reboot_required
+
+    - name: Report reboot requirements without rebooting the VM
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}: reboot required =
+          {{ oracle_reboot_required.stat.exists }}.
+          {{ 'Check mode: upgrades were not applied; this is the existing reboot flag.'
+             if ansible_check_mode else 'No reboot was performed by this playbook.' }}

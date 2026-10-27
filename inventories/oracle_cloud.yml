@@ -1,0 +1,25 @@
+---
+# Dedicated Oracle Cloud inventory using public addresses from ~/.ssh/config.
+# System administration uses the ubuntu aliases, not the docker-secure logins.
+# Supply SSH keys through the local SSH agent/config or Semaphore's key store.
+all:
+  vars:
+    ansible_user: ubuntu
+    ansible_port: 22
+    ansible_become: true
+    ansible_become_method: sudo
+    ansible_python_interpreter: /usr/bin/python3
+
+  children:
+    # Compatibility group for the existing audit/update/reboot guest playbooks.
+    # These two hosts are Oracle Cloud VMs, not Proxmox guests.
+    proxmox_guests:
+      children:
+        oracle_cloud:
+          hosts:
+            cloud-vm-multi-01:
+              # SSH alias: OCI-VM-1-ubuntu
+              ansible_host: 129.80.37.165
+            cloud-vm-multi-02:
+              # SSH alias: OCI-VM-2-ubuntu
+              ansible_host: 193.122.155.125

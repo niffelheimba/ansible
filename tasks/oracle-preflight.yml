@@ -1,0 +1,24 @@
+---
+- name: Require an Ubuntu ARM64 Oracle Cloud VM
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.distribution == 'Ubuntu'
+      - ansible_facts.architecture in ['aarch64', 'arm64']
+      - inventory_hostname in groups.get('oracle_cloud', [])
+    fail_msg: This workflow supports only Ubuntu ARM64 hosts in the oracle_cloud inventory group.
+
+- name: Verify package database consistency before maintenance
+  ansible.builtin.command: dpkg --audit
+  register: oracle_dpkg_preflight
+  changed_when: false
+  check_mode: false
+  failed_when: >-
+    oracle_dpkg_preflight.rc != 0 or
+    (oracle_dpkg_preflight.stdout | trim | length) > 0
+
+- name: Report the verified target
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }}: {{ ansible_facts.distribution }}
+      {{ ansible_facts.distribution_version }}, {{ ansible_facts.architecture }};
+      SSH, privilege escalation, and package database checks passed.

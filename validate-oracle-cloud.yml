@@ -1,0 +1,11 @@
+---
+- name: Validate Oracle Cloud maintenance access without installing updates
+  hosts: oracle_cloud
+  become: true
+  gather_facts: true
+  serial: 1
+  any_errors_fatal: true
+
+  tasks:
+    - name: Run read-only platform and package checks
+      ansible.builtin.import_tasks: tasks/oracle-preflight.yml
