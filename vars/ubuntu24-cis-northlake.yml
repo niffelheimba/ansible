@@ -1,0 +1,113 @@
+---
+# Northlake subset, reviewed against UBUNTU24-CIS 3a2f05b9a8040eb869fd14fdca882aae4f68733b.
+# Do not enable arbitrary upstream rules: the wrapper skips their prerequisites.
+# Add a reviewed task entrypoint and extend validation when expanding this profile.
+northlake_enable_auditd: true
+northlake_enable_aslr: true
+northlake_enable_banners: true
+northlake_protected_services:
+  - ssh.service
+  - sshd.service
+  - ssh.socket
+  - docker.service
+  - containerd.service
+  - kanidm-unixd.service
+  - kanidm_unixd.service
+  - kanidm.service
+
+# Defense in depth if the role entrypoint is accidentally changed.
+ubtu24cis_section1: false
+ubtu24cis_section2: false
+ubtu24cis_section3: false
+ubtu24cis_section4: false
+ubtu24cis_section5: false
+ubtu24cis_section6: false
+ubtu24cis_section7: false
+ubtu24cis_level_1: true
+ubtu24cis_level_2: false
+ubtu24cis_disruption_high: false
+skip_reboot: true
+run_audit: false
+setup_audit: false
+audit_only: false
+create_benchmark_facts: false
+update_audit_template: false
+ubtu24cis_disable_dynamic_motd: false
+ubtu24cis_apt_lock_timeout: 180
+ubtu24cis_sysctl_kernel_conf: /etc/sysctl.d/99-northlake-aslr.conf
+ubtu24cis_warning_banner: |
+  Authorized access only. Activity on this system may be logged and monitored.
+
+# Explicitly account for EVERY rule in each imported task file, including disabled
+# ones. Section and level flags do not filter these direct task-file imports.
+# Process hardening: retain user namespaces, debugging and existing core handling.
+ubtu24cis_rule_1_5_1: true
+ubtu24cis_rule_1_5_2: false
+ubtu24cis_rule_1_5_3: false
+ubtu24cis_rule_1_5_4: false
+ubtu24cis_rule_1_5_5: false
+
+# Banner files only; no PAM dynamic-MOTD edits or SSH Banner directive changes.
+ubtu24cis_rule_1_6_1: false
+ubtu24cis_rule_1_6_2: true
+ubtu24cis_rule_1_6_3: true
+ubtu24cis_rule_1_6_4: false
+ubtu24cis_rule_1_6_5: true
+ubtu24cis_rule_1_6_6: true
+
+# Root's system cron files; no new cron service or per-user access restrictions.
+ubtu24cis_rule_2_4_1_1: false
+ubtu24cis_rule_2_4_1_2: true
+ubtu24cis_rule_2_4_1_3: true
+ubtu24cis_rule_2_4_1_4: true
+ubtu24cis_rule_2_4_1_5: true
+ubtu24cis_rule_2_4_1_6: true
+ubtu24cis_rule_2_4_1_7: true
+ubtu24cis_rule_2_4_1_8: false
+
+# SSH permissions only. Preserve Kanidm AuthorizedKeysCommand, PAM, allowed
+# accounts, forwarding and connection settings. Do not restart SSH.
+ubtu24cis_rule_5_1_1: true
+ubtu24cis_rule_5_1_2: true
+ubtu24cis_rule_5_1_3: true
+ubtu24cis_rule_5_1_4: false
+ubtu24cis_rule_5_1_5: false
+ubtu24cis_rule_5_1_6: false
+ubtu24cis_rule_5_1_7: false
+ubtu24cis_rule_5_1_8: false
+ubtu24cis_rule_5_1_9: false
+ubtu24cis_rule_5_1_10: false
+ubtu24cis_rule_5_1_11: false
+ubtu24cis_rule_5_1_12: false
+ubtu24cis_rule_5_1_13: false
+ubtu24cis_rule_5_1_14: false
+ubtu24cis_rule_5_1_15: false
+ubtu24cis_rule_5_1_16: false
+ubtu24cis_rule_5_1_17: false
+ubtu24cis_rule_5_1_18: false
+ubtu24cis_rule_5_1_19: false
+ubtu24cis_rule_5_1_20: false
+ubtu24cis_rule_5_1_21: false
+ubtu24cis_rule_5_1_22: false
+
+# Audit daemon only: no GRUB, immutable rules, halt-on-full policy or rule flood.
+# These two level-2 controls are deliberately selected without enabling level 2.
+ubtu24cis_rule_6_2_1_1: true
+ubtu24cis_rule_6_2_1_2: true
+ubtu24cis_rule_6_2_1_3: false
+ubtu24cis_rule_6_2_1_4: false
+
+# Preserve Ubuntu's shadow group ownership; no application/volume ownership scans.
+ubtu24cis_rule_7_1_1: true
+ubtu24cis_rule_7_1_2: true
+ubtu24cis_rule_7_1_3: true
+ubtu24cis_rule_7_1_4: true
+ubtu24cis_rule_7_1_5: false
+ubtu24cis_rule_7_1_6: false
+ubtu24cis_rule_7_1_7: false
+ubtu24cis_rule_7_1_8: false
+ubtu24cis_rule_7_1_9: true
+ubtu24cis_rule_7_1_10: false
+ubtu24cis_rule_7_1_11: false
+ubtu24cis_rule_7_1_12: false
+ubtu24cis_rule_7_1_13: false

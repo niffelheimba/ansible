@@ -1,0 +1,181 @@
+---
+- name: Apply the Northlake subset of Ubuntu 24 CIS controls
+  hosts: "{{ northlake_hardening_target_group | default('oracle_cloud') }}"
+  become: true
+  gather_facts: true
+  serial: 1
+  any_errors_fatal: true
+  vars_files:
+    - vars/ubuntu24-cis-northlake.yml
+
+  pre_tasks:
+    - name: Require supported ordinary Ubuntu guests and a real apply run
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.system == 'Linux'
+          - ansible_facts.distribution == 'Ubuntu'
+          - ansible_facts.distribution_version == '24.04'
+          - inventory_hostname not in groups.get('physical_hosts', [])
+          - inventory_hostname not in groups.get('proxmox_hosts', [])
+          - not ansible_check_mode
+        fail_msg: >-
+          Only Ubuntu 24.04 guests are supported. This selected upstream role
+          does not support reliable check mode; use syntax checks and a canary VM.
+
+    - name: Read installed packages
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Refuse Proxmox nodes even in a misconfigured guest inventory
+      ansible.builtin.assert:
+        that:
+          - "'proxmox-ve' not in ansible_facts.packages"
+          - "'pve-manager' not in ansible_facts.packages"
+
+    - name: Identify guests sharing a host kernel
+      ansible.builtin.set_fact:
+        northlake_is_container: >-
+          {{ ansible_facts.virtualization_type | default('') in
+             ['lxc', 'lxd', 'docker', 'podman', 'container', 'containerd', 'openvz', 'systemd-nspawn']
+             or 'container' in (ansible_facts.virtualization_tech_guest | default([])) }}
+
+    - name: Validate existing SSH configuration before changes
+      ansible.builtin.command: /usr/sbin/sshd -t
+      changed_when: false
+
+    - name: Read existing service state
+      ansible.builtin.service_facts:
+
+    - name: Remember running access and container services
+      ansible.builtin.set_fact:
+        northlake_running_services: >-
+          {{ ansible_facts.services | dict2items
+             | selectattr('key', 'in', northlake_protected_services)
+             | selectattr('value.state', 'equalto', 'running')
+             | map(attribute='key') | list }}
+
+    - name: Verify the login account resolves through the existing identity setup
+      ansible.builtin.command:
+        argv: [getent, passwd, "{{ ansible_user }}"]
+      changed_when: false
+      no_log: true
+
+    - name: Save private host backup and protected configuration fingerprints
+      ansible.builtin.script:
+        cmd: scripts/northlake-hardening-snapshot.py snapshot
+        executable: /usr/bin/python3
+      register: northlake_snapshot
+      changed_when: true
+
+    - name: Record recovery location
+      ansible.builtin.set_fact:
+        northlake_backup_dir: "{{ (northlake_snapshot.stdout | trim | from_json).backup_dir }}"
+
+    - name: Show recovery location
+      ansible.builtin.debug:
+        msg: "Pre-change backup on {{ inventory_hostname }}: {{ northlake_backup_dir }}"
+
+  tasks:
+    # Deliberately bypass tasks/main.yml, prelim.yml and section-wide imports.
+    # Every rule in these pinned task files has an explicit setting in vars/.
+    - name: Apply ASLR on VMs without changing networking or user namespaces
+      when:
+        - northlake_enable_aslr | bool
+        - not northlake_is_container | bool
+      ansible.builtin.import_role:
+        name: ubuntu24_cis
+        tasks_from: section_1/cis_1.5.x.yml
+
+    - name: Apply local and remote banner files without changing SSH or PAM
+      when: northlake_enable_banners | bool
+      ansible.builtin.import_role:
+        name: ubuntu24_cis
+        tasks_from: section_1/cis_1.6.x.yml
+
+    - name: Restrict system cron files only on hosts already using cron
+      when: "'cron' in ansible_facts.packages"
+      ansible.builtin.import_role:
+        name: ubuntu24_cis
+        tasks_from: section_2/cis_2.4.1.x.yml
+
+    - name: Apply SSH file permissions while preserving all authentication directives
+      ansible.builtin.import_role:
+        name: ubuntu24_cis
+        tasks_from: section_5/cis_5.1.x.yml
+
+    - name: Install and enable auditd only on guests with their own kernel
+      when:
+        - northlake_enable_auditd | bool
+        - not northlake_is_container | bool
+      ansible.builtin.import_role:
+        name: ubuntu24_cis
+        tasks_from: section_6/cis_6.2.1.x.yml
+
+    - name: Restrict selected system file permissions without scanning application data
+      ansible.builtin.import_role:
+        name: ubuntu24_cis
+        tasks_from: section_7/cis_7.1.x.yml
+
+  post_tasks:
+    - name: Verify the selected ASLR control took effect
+      when:
+        - northlake_enable_aslr | bool
+        - not northlake_is_container | bool
+      ansible.builtin.command: /usr/sbin/sysctl -n kernel.randomize_va_space
+      register: northlake_aslr
+      changed_when: false
+      failed_when: northlake_aslr.stdout | trim != '2'
+
+    - name: Verify protected authentication and Docker configuration contents
+      ansible.builtin.script:
+        cmd: "scripts/northlake-hardening-snapshot.py verify {{ northlake_backup_dir | quote }}"
+        executable: /usr/bin/python3
+      changed_when: false
+
+    - name: Validate SSH configuration after permission changes
+      ansible.builtin.command: /usr/sbin/sshd -t
+      changed_when: false
+
+    - name: Read service state after hardening
+      ansible.builtin.service_facts:
+
+    - name: Require previously running access and container services to remain running
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services.get(item, {}).get('state', '') == 'running'
+        fail_msg: "{{ item }} stopped; use the host backup and console before continuing."
+      loop: "{{ northlake_running_services }}"
+
+    - name: Require the audit daemon to be running when selected
+      when:
+        - northlake_enable_auditd | bool
+        - not northlake_is_container | bool
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services.get('auditd.service', {}).get('state', '') == 'running'
+
+    - name: Reconnect to exercise a new SSH login
+      ansible.builtin.meta: reset_connection
+
+    - name: Require new authenticated access
+      ansible.builtin.wait_for_connection:
+        timeout: 60
+
+    - name: Verify account resolution after reconnecting
+      ansible.builtin.command:
+        argv: [getent, passwd, "{{ ansible_user }}"]
+      changed_when: false
+      no_log: true
+
+    - name: Require privilege escalation to still work
+      ansible.builtin.command: /usr/bin/id -u
+      register: northlake_effective_uid
+      changed_when: false
+      failed_when: northlake_effective_uid.stdout | trim != '0'
+
+    - name: Report completion without claiming full CIS compliance
+      ansible.builtin.debug:
+        msg: >-
+          Northlake selected controls completed; backup {{ northlake_backup_dir }}.
+          Re-run Lynis and test Compose applications, rootless Docker, and Kanidm
+          user access before extending the rollout. No reboot was requested.

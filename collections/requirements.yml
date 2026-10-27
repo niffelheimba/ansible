@@ -1,0 +1,9 @@
+---
+# Semaphore discovers this path automatically; keep pins separate from Proxmox.
+collections:
+  - name: community.general
+    version: 11.4.0
+  - name: ansible.posix
+    version: 2.1.0
+  - name: community.crypto
+    version: 3.0.5

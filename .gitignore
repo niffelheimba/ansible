@@ -2,3 +2,7 @@
 artifacts/
 __pycache__/
 *.pyc
+# Downloaded hardening role and collections are installed from pinned requirements.
+roles/ubuntu24_cis/
+collections/*
+!collections/requirements.yml
