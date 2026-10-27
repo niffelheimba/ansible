@@ -10,6 +10,7 @@
     lynis_collect_reports: true
     lynis_controller_root: "{{ playbook_dir }}/artifacts/lynis"
     lynis_audit_timeout: 1800
+    lynis_loki_url: ''
 
   pre_tasks:
     - name: Require Debian-family Linux guests
@@ -101,6 +102,7 @@
             - lynis.log
             - console.txt
             - audit-events.jsonl
+            - audit-events.loki.json
           register: lynis_artifacts
 
         - name: Restrict audit file permissions
@@ -146,6 +148,31 @@
               - >-
                 Runner artifacts: {{ lynis_controller_root }}/{{ inventory_hostname }}/{{ lynis_run_directory.path | basename }}
                 (collection enabled: {{ lynis_collect_reports | bool }})
+
+        - name: Read the structured Loki request from the audited guest
+          ansible.builtin.slurp:
+            src: "{{ lynis_run_directory.path }}/audit-events.loki.json"
+          register: lynis_loki_payload
+          when: lynis_loki_url | length > 0
+
+        - name: Publish audit events from the runner to the configured Loki endpoint
+          ansible.builtin.uri:
+            url: "{{ lynis_loki_url }}"
+            method: POST
+            body_format: json
+            body: "{{ lynis_loki_payload.content | b64decode | from_json }}"
+            status_code: 204
+            timeout: 60
+          delegate_to: localhost
+          become: false
+          vars:
+            ansible_become: false
+            ansible_python_interpreter: "{{ ansible_playbook_python }}"
+          register: lynis_loki_publish
+          retries: 3
+          delay: 5
+          until: lynis_loki_publish is succeeded
+          when: lynis_loki_url | length > 0
 
         - name: Fail unsuccessful scans after preserving available evidence
           ansible.builtin.assert:

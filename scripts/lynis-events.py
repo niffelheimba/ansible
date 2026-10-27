@@ -47,6 +47,13 @@ def main():
         for event in events:
             output.write(json.dumps(event) + '\n')
     Path(args.output).chmod(0o600)
+    payload = {'streams': [{'stream': {'job': 'lynis', 'host': args.host},
+                            'values': [[str(event['scanned_at'] * 1000000000 + index),
+                                        json.dumps(event)]
+                                       for index, event in enumerate(events)]}]}
+    payload_path = Path(args.output).with_suffix('.loki.json')
+    payload_path.write_text(json.dumps(payload), encoding='utf-8')
+    payload_path.chmod(0o600)
     print(json.dumps(events))
 
 

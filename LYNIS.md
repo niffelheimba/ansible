@@ -72,9 +72,13 @@ event per scan (host, scan time, Lynis version, hardening index, counts).
 Keep host and job as stable labels; keep finding text and scan IDs in event data.
 Do not treat the hardening index as a vulnerability count or proof of security.
 
-This playbook generates events but does not itself push to Loki. The Grafana
-dashboard `lynis-audits` uses the event schema above. A collector still needs to
-ship events after each run (or Alloy can tail the persistent JSONL files).
+The Grafana dashboard `lynis-audits` uses the event schema above. Set
+`lynis_loki_url` to the private Loki push endpoint to publish automatically from
+the runner after collecting the files. It defaults to an empty string, which
+disables publishing. The Northlake Semaphore template supplies the endpoint
+through its `Lynis audit reporting` variable group. The runner must be able to
+reach it. Publication errors fail the job after its report files are preserved.
+The generated `audit-events.loki.json` request is also saved with each audit.
 
 References:
 - https://cisofy.com/documentation/lynis/
