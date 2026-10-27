@@ -22,12 +22,23 @@
         fail_msg: This playbook supports ordinary Debian-family Linux guests only.
 
   tasks:
+    - name: Check whether Lynis is already installed
+      ansible.builtin.package_facts:
+        manager: auto
+
     - name: Install Lynis if absent without upgrading an existing installation
       ansible.builtin.apt:
         name: lynis
         state: present
         update_cache: true
         cache_valid_time: 3600
+        lock_timeout: 300
+        update_cache_retries: 5
+      register: lynis_package_install
+      retries: 5
+      delay: 20
+      until: lynis_package_install is succeeded
+      when: "'lynis' not in ansible_facts.packages"
 
     - name: Run audit and preserve its artifacts
       when: not ansible_check_mode
