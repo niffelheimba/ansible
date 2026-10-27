@@ -122,6 +122,8 @@
             mode: '0700'
           delegate_to: localhost
           become: false
+          vars:
+            ansible_become: false
           when: lynis_collect_reports | bool
 
         - name: Collect full and partial artifacts on the Ansible runner
