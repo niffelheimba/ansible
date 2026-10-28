@@ -58,3 +58,9 @@
       ansible.builtin.debug:
         msg: "A reboot is required for {{ inventory_hostname }}."
       when: reboot_required_file.stat.exists
+
+    - name: Record verified update completion for the security dashboard
+      ansible.builtin.import_tasks: tasks/record-successful-update.yml
+      vars:
+        maintenance_upgrade_result: "{{ package_upgrade }}"
+        maintenance_update_playbook: update-proxmox-guests.yml

@@ -1,0 +1,65 @@
+# Historical backfill: successful per-host upgrade + dpkg-check results from
+# Semaphore task outputs 29 and 32. Excludes dry runs and ignored SSH failures.
+# Timestamp is job end, not an exact per-host package installation timestamp.
+maintenance_history: {
+  "home-vm-multi-01": {
+    "last_successful_update_ms": 1787790570000,
+    "update_source": "Semaphore task 29",
+    "update_task_id": 29,
+    "update_time_basis": "task_end"
+  },
+  "home-vm-proxyauth-01": {
+    "last_successful_update_ms": 1793060722000,
+    "update_source": "Semaphore task 32",
+    "update_task_id": 32,
+    "update_time_basis": "task_end"
+  },
+  "home-lxc-tailscale-01": {
+    "last_successful_update_ms": 1793060722000,
+    "update_source": "Semaphore task 32",
+    "update_task_id": 32,
+    "update_time_basis": "task_end"
+  },
+  "home-vm-jellyfin-01": {
+    "last_successful_update_ms": 1793060722000,
+    "update_source": "Semaphore task 32",
+    "update_task_id": 32,
+    "update_time_basis": "task_end"
+  },
+  "home-lxc-tailscale-02": {
+    "last_successful_update_ms": 1793060722000,
+    "update_source": "Semaphore task 32",
+    "update_task_id": 32,
+    "update_time_basis": "task_end"
+  },
+  "home-vm-amp-01": {
+    "last_successful_update_ms": 1787790570000,
+    "update_source": "Semaphore task 29",
+    "update_task_id": 29,
+    "update_time_basis": "task_end"
+  },
+  "home-lxc-netbird-01": {
+    "last_successful_update_ms": 1793060722000,
+    "update_source": "Semaphore task 32",
+    "update_task_id": 32,
+    "update_time_basis": "task_end"
+  },
+  "cloud-vm-multi-01": {
+    "last_successful_update_ms": 1787790570000,
+    "update_source": "Semaphore task 29",
+    "update_task_id": 29,
+    "update_time_basis": "task_end"
+  },
+  "home-lxc-netbird-02": {
+    "last_successful_update_ms": 1793060722000,
+    "update_source": "Semaphore task 32",
+    "update_task_id": 32,
+    "update_time_basis": "task_end"
+  },
+  "cloud-vm-multi-02": {
+    "last_successful_update_ms": 1787790570000,
+    "update_source": "Semaphore task 29",
+    "update_task_id": 29,
+    "update_time_basis": "task_end"
+  }
+}

@@ -31,6 +31,7 @@
         dpkg_options: force-confdef,force-confold
       environment:
         DEBIAN_FRONTEND: noninteractive
+      register: oracle_package_upgrade
 
     - name: Discard the previous SSH connection
       ansible.builtin.meta: reset_connection
@@ -62,3 +63,9 @@
           {{ oracle_reboot_required.stat.exists }}.
           {{ 'Check mode: upgrades were not applied; this is the existing reboot flag.'
              if ansible_check_mode else 'No reboot was performed by this playbook.' }}
+
+    - name: Record verified update completion for the security dashboard
+      ansible.builtin.import_tasks: tasks/record-successful-update.yml
+      vars:
+        maintenance_upgrade_result: "{{ oracle_package_upgrade }}"
+        maintenance_update_playbook: update-oracle-cloud.yml

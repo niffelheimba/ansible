@@ -1,0 +1,80 @@
+---
+- name: Collect read-only maintenance status for all ordinary Linux guests
+  hosts: proxmox_guests
+  become: true
+  gather_facts: false
+  vars_files:
+    - vars/maintenance-history.yml
+  vars:
+    host_maintenance_loki_url: ''
+
+  pre_tasks:
+    - name: Require the telemetry destination and refuse physical-node inventories
+      ansible.builtin.assert:
+        that:
+          - host_maintenance_loki_url | length > 0
+          - inventory_hostname not in groups.get('physical_hosts', [])
+          - inventory_hostname not in groups.get('proxmox_hosts', [])
+          - not ansible_check_mode
+        fail_msg: Use the guest inventory with a configured Loki push URL; this collector is read-only.
+
+  tasks:
+    - name: Read OS, package history, update markers and the current guest reboot flag
+      ansible.builtin.script:
+        cmd: >-
+          scripts/host-maintenance-status.py
+          --host {{ inventory_hostname | quote }}
+          --history-json {{ maintenance_history.get(inventory_hostname, {}) | to_json | quote }}
+        executable: /usr/bin/python3
+      register: maintenance_reading
+      changed_when: false
+      failed_when: false
+      ignore_unreachable: true
+
+    - name: Keep failed or unreachable inventory hosts visible as unknown
+      ansible.builtin.set_fact:
+        maintenance_event: >-
+          {{ (maintenance_reading.stdout | trim | from_json)
+             if (maintenance_reading.rc | default(-1) == 0 and
+                 not maintenance_reading.unreachable | default(false)) else
+             {'event': 'host_status', 'host': inventory_hostname,
+              'observed_at_ms': (lookup('pipe', 'date +%s') | int) * 1000,
+              'observed_at_ns': lookup('pipe', 'date +%s%N'),
+              'collection_status': 'Unreachable / collection failed',
+              'os': 'Unknown', 'version': 'Unknown', 'reboot_required': 'Unknown',
+              'runtime': 'Unknown', 'architecture': 'Unknown', 'kernel': 'Unknown',
+              'last_package_upgrade_ms': none,
+              'last_successful_update_ms': maintenance_history.get(inventory_hostname, {}).get('last_successful_update_ms'),
+              'update_source': maintenance_history.get(inventory_hostname, {}).get('update_source', 'Unknown'),
+              'update_check_age_days': none, 'last_boot_ms': none} }}
+
+    - name: Publish bounded host status events from the runner
+      ansible.builtin.uri:
+        url: "{{ host_maintenance_loki_url }}"
+        method: POST
+        body_format: json
+        body:
+          streams:
+            - stream:
+                job: host_maintenance
+                host: "{{ inventory_hostname }}"
+              values:
+                - - "{{ maintenance_event.observed_at_ns | string }}"
+                  - "{{ maintenance_event | to_json }}"
+        status_code: 204
+        timeout: 30
+      delegate_to: localhost
+      become: false
+      vars:
+        ansible_become: false
+        ansible_python_interpreter: "{{ ansible_playbook_python }}"
+      register: maintenance_publish
+      retries: 3
+      delay: 5
+      until: maintenance_publish is succeeded
+
+    - name: Report collection gaps after publishing the unknown row
+      ansible.builtin.assert:
+        that:
+          - maintenance_event.collection_status == 'OK'
+        fail_msg: Status was published with a collection warning; review SSH access or the host marker.

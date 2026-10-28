@@ -1,0 +1,32 @@
+---
+# Import only AFTER upgrades and dpkg consistency checks have succeeded.
+- name: Record a successful real update check for maintenance telemetry
+  when:
+    - not ansible_check_mode
+    - not maintenance_upgrade_result.unreachable | default(false)
+    - not maintenance_upgrade_result.failed | default(false)
+    - not maintenance_upgrade_result.skipped | default(false)
+  block:
+    - name: Read the update completion time on the host
+      ansible.builtin.command: date +%s
+      register: maintenance_completed_at
+      changed_when: false
+
+    - name: Create the maintenance metadata directory
+      ansible.builtin.file:
+        path: /var/lib/northlake-maintenance
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Save completion metadata without package details or credentials
+      ansible.builtin.copy:
+        dest: /var/lib/northlake-maintenance/last-successful-update.json
+        owner: root
+        group: root
+        mode: '0644'
+        content: >-
+          {{ {'completed_at_ms': (maintenance_completed_at.stdout | int) * 1000,
+              'playbook': maintenance_update_playbook,
+              'packages_changed': maintenance_upgrade_result.changed | default(false)} | to_nice_json }}
