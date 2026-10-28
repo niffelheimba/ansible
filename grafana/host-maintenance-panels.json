@@ -1,0 +1,468 @@
+{
+  "dashboardUid": "homelab-security",
+  "variable": {
+    "allValue": ".*",
+    "current": {
+      "text": "All",
+      "value": "$__all"
+    },
+    "datasource": {
+      "type": "loki",
+      "uid": "loki"
+    },
+    "definition": "label_values({job=\"host_maintenance\"},host)",
+    "includeAll": true,
+    "label": "Managed host",
+    "multi": true,
+    "name": "maintenance_host",
+    "options": [],
+    "query": "label_values({job=\"host_maintenance\"},host)",
+    "refresh": 2,
+    "sort": 1,
+    "type": "query"
+  },
+  "panels": [
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "Inventory hosts with a stored maintenance observation older than two hours at the selected end time. Unknown/failed readings are marked in the table. No data means no events in the seven-day lookback.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "noValue": "Unknown",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 6
+      },
+      "id": 14,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(max by(host)(last_over_time({job=\"host_maintenance\",host=~\"${maintenance_host:regex}\"} | json | unwrap observed_at_ms | __error__=\"\" [7d])) < bool (${__to} - 7200000))",
+          "instant": true,
+          "queryType": "instant",
+          "refId": "A"
+        }
+      ],
+      "title": "Maintenance readings older than 2h",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "Latest reading per inventory host in the last 7 days. Independent of the journal Host filter. Update checks are verified per host; last package upgrade comes from completed APT Upgrade transactions. Shared-kernel guests cannot establish hypervisor reboot requirements.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": true
+          },
+          "mappings": [],
+          "noValue": "Unknown"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Host"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 230
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "View Lynis findings",
+                    "url": "/d/lynis-audits/lynis-security-audits?var-host=${__value.raw}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Last successful update check"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeAsLocal"
+              },
+              {
+                "id": "custom.width",
+                "value": 190
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Last package upgrade"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeAsLocal"
+              },
+              {
+                "id": "custom.width",
+                "value": 190
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Last checked"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeFromNow"
+              },
+              {
+                "id": "custom.width",
+                "value": 145
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Reboot needed"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 210
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "No": {
+                        "color": "green",
+                        "text": "No guest flag"
+                      },
+                      "Shared kernel — no guest flag": {
+                        "color": "blue",
+                        "text": "Shared kernel · no guest flag"
+                      },
+                      "Unknown": {
+                        "color": "orange",
+                        "text": "Unknown"
+                      },
+                      "Yes": {
+                        "color": "red",
+                        "text": "Yes"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Collection"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "OK": {
+                        "color": "green",
+                        "text": "OK"
+                      },
+                      "Unreachable / collection failed": {
+                        "color": "red",
+                        "text": "Unreachable / failed"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Architecture"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 13,
+        "w": 24,
+        "x": 0,
+        "y": 10
+      },
+      "id": 13,
+      "options": {
+        "cellHeight": "sm",
+        "enablePagination": false,
+        "footer": {
+          "show": false
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "last_over_time({job=\"host_maintenance\",host=~\"${maintenance_host:regex}\"} | json | unwrap observed_at_ms | __error__=\"\" [7d]) by (host,os,architecture,runtime,kernel,reboot_required,collection_status,last_successful_update_ms,last_package_upgrade_ms,update_source)",
+          "instant": true,
+          "legendFormat": "{{host}}",
+          "queryType": "instant",
+          "refId": "A"
+        }
+      ],
+      "title": "Host maintenance · all managed guests",
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns"
+          }
+        },
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "desc": false,
+                "field": "Value"
+              }
+            ]
+          }
+        },
+        {
+          "id": "groupBy",
+          "options": {
+            "fields": {
+              "Value": {
+                "aggregations": [
+                  "last"
+                ],
+                "operation": "aggregate"
+              },
+              "architecture": {
+                "aggregations": [
+                  "last"
+                ],
+                "operation": "aggregate"
+              },
+              "collection_status": {
+                "aggregations": [
+                  "last"
+                ],
+                "operation": "aggregate"
+              },
+              "host": {
+                "aggregations": [],
+                "operation": "groupby"
+              },
+              "kernel": {
+                "aggregations": [
+                  "last"
+                ],
+                "operation": "aggregate"
+              },
+              "last_package_upgrade_ms": {
+                "aggregations": [
+                  "last"
+                ],
+                "operation": "aggregate"
+              },
+              "last_successful_update_ms": {
+                "aggregations": [
+                  "last"
+                ],
+                "operation": "aggregate"
+              },
+              "os": {
+                "aggregations": [
+                  "last"
+                ],
+                "operation": "aggregate"
+              },
+              "reboot_required": {
+                "aggregations": [
+                  "last"
+                ],
+                "operation": "aggregate"
+              },
+              "runtime": {
+                "aggregations": [
+                  "last"
+                ],
+                "operation": "aggregate"
+              },
+              "update_source": {
+                "aggregations": [
+                  "last"
+                ],
+                "operation": "aggregate"
+              }
+            }
+          }
+        },
+        {
+          "id": "convertFieldType",
+          "options": {
+            "conversions": [
+              {
+                "destinationType": "number",
+                "targetField": "last_successful_update_ms (last)"
+              },
+              {
+                "destinationType": "number",
+                "targetField": "last_package_upgrade_ms (last)"
+              }
+            ],
+            "fields": {}
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "kernel (last)": true
+            },
+            "indexByName": {
+              "Value (last)": 7,
+              "architecture (last)": 2,
+              "collection_status (last)": 8,
+              "host": 0,
+              "last_package_upgrade_ms (last)": 6,
+              "last_successful_update_ms (last)": 5,
+              "os (last)": 1,
+              "reboot_required (last)": 4,
+              "runtime (last)": 3,
+              "update_source (last)": 9
+            },
+            "renameByName": {
+              "Value (last)": "Last checked",
+              "architecture (last)": "Architecture",
+              "collection_status (last)": "Collection",
+              "host": "Host",
+              "last_package_upgrade_ms (last)": "Last package upgrade",
+              "last_successful_update_ms (last)": "Last successful update check",
+              "os (last)": "Operating system",
+              "reboot_required (last)": "Reboot needed",
+              "runtime (last)": "Runtime",
+              "update_source (last)": "Update evidence"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "desc": false,
+                "field": "Host"
+              }
+            ]
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
+      "id": 15,
+      "options": {
+        "content": "**Hourly read-only collection covers the 10 guests in the Ansible guest inventory.** This table uses the separate **Managed host** filter; journal panels still use **Host**. **Last successful update check** is verified per host, with historical Semaphore task end times used for backfill. It can mean no packages needed upgrading. **Last package upgrade** comes from completed APT history; missing/rotated evidence is **Unknown**. **Last checked** is observation freshness. Reboot status reads the current guest flag; **LXC guests share a Proxmox kernel**, so no guest flag does not establish the host's reboot requirement. No updates, reboots or hardening are triggered by this dashboard. Latest reading per host is retained in a **7-day lookback**, ending at the selected end time.",
+        "mode": "markdown"
+      },
+      "title": "Maintenance coverage and meaning",
+      "type": "text"
+    }
+  ]
+}

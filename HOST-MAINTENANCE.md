@@ -74,6 +74,15 @@ python3 scripts/test-host-maintenance-status.py
 ansible-playbook -i inventories/proxmox_guests.yml collect-host-maintenance.yml --syntax-check
 ```
 
+The saved table, freshness counter, coverage note and variable definitions are in
+`grafana/host-maintenance-panels.json`. The table merges Loki series, sorts by
+observation time, and groups by inventory host before formatting date fields.
+This ensures a newer failed reading replaces an older healthy one, instead of
+showing stale success. The optional `scripts/test-maintenance-table.cjs` tests
+these transformations with Grafana's own `@grafana/data` 13.2.4 library and rxjs
+7.8.2; pass the directory containing those dependencies as its first argument.
+Both actual ten-host readings and synthetic stale/unknown cases were validated.
+
 The Loki destination belongs in Semaphore's environment, not a public endpoint.
 No API tokens or private keys are stored in this repository. Existing approved
 SSH credentials are reused. Future improvements include OS support-lifecycle
